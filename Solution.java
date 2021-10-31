@@ -46,9 +46,9 @@ public class Solution {
 	foundFlag = true;
     }
    
-    // the main entry function of each worker thread 
-    private void func(Map<Thread, List<Integer>> thread2subListIndexMap, int node2) {
-        for (int node : thread2subListIndexMap.get(Thread.currentThread())) {
+    // the main function of a worker thread 
+    private void func(Map<Thread, List<Integer>> thread2sublistMap, int node2) {
+        for (int node : thread2sublistMap.get(Thread.currentThread())) {
             for (int neiNode : adjList.get(node)) {
                 if (!visitedContains(neiNode)) {
                     visitedAdd(neiNode);
@@ -74,29 +74,30 @@ public class Solution {
         while (!queue.isEmpty()) {
             distance++;
 
-	    // split all the nodes in the queue into up to 10 partitions
+	    // split all the nodes in the queue into (up to) THREADS_NUM partitions
 	    List<Integer> nodesInQueue = new ArrayList<Integer>();
 	    while (!queue.isEmpty()) 
 		nodesInQueue.add(queue.poll());
 	    List<Integer>[] subLists = partition(nodesInQueue, (int) (Math.ceil((double) nodesInQueue.size() / THREADS_NUM)));
-	    // assign thread with its own node list; a thread will fetch its node list by its thread obj
-    	    Map<Thread, List<Integer>> thread2subListIndexMap = new HashMap<Thread, List<Integer>>();
+    	    Map<Thread, List<Integer>> thread2sublistMap = new HashMap<Thread, List<Integer>>();
 
-            // create up to 10 threads, each thread does the work of func()
+            // create #sublists threads, each thread will perform the work of func()
 	    Runnable runnable = () -> {
-		func(thread2subListIndexMap, node2);
+		func(thread2sublistMap, node2);
             };
 	    for (int i = 0; i < subLists.length; i++) {
 	        Thread thread = new Thread(runnable);
-		thread2subListIndexMap.put(thread, subLists[i]);
+		// assign a thread with its own node list to process
+		thread2sublistMap.put(thread, subLists[i]);
 		thread.start();
 	    }
 	    
 	    try {
-                // wait all threads to finish for this searching round to ensure correct result
-		for (Thread thread : thread2subListIndexMap.keySet())
+                // wait for all threads to finish
+		for (Thread thread : thread2sublistMap.keySet())
 	            thread.join();
-                // check if any of them have found node2. If so, return distance; otherwise, keep searching
+                // check if any of worker thread has found node2
+		// if so, return distance; otherwise, keep searching
 		if (foundFlag == true)
 		    return distance;
 	    } catch(Exception e) {
@@ -118,7 +119,7 @@ public class Solution {
 		}
 	    }
 	}
-	
+        System.out.println("edges.size = " + edges.size());	
 	Solution solution = new Solution(edges);
         System.out.println("distance between node 0 and node 1: " + solution.getMinDistanceParallel(0, 1));
         System.out.println("distance between node 0 and node 11: " + solution.getMinDistanceParallel(0, 11));
@@ -126,6 +127,7 @@ public class Solution {
         System.out.println("distance between node 0 and node 6: " + solution.getMinDistanceParallel(0, 6));
     }
     
+    // helper function
     public static<T> List[] partition(List<T> list, int n) {
         // get the size of the list
         int size = list.size();
@@ -144,8 +146,7 @@ public class Solution {
  
         // process each list element and add it to the corresponding
         // list based on its position in the original list
-        for (int i = 0; i < size; i++)
-        {
+        for (int i = 0; i < size; i++) {
             int index = i / n;
             partition[index].add(list.get(i));
         }
